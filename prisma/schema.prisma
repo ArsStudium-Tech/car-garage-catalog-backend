@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Garage {
+  id             String   @id @default(uuid())
+  name           String
+  domain         String   @unique
+  logoUrl        String?  @map("logo_url")
+  primaryColor   String?  @map("primary_color")
+  secondaryColor String?  @map("secondary_color")
+  whatsapp       String?
+  active         Boolean  @default(true)
+
+  cars           Car[]
+  users          User[]
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("garage")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  garageId  String   @map("garage_id")
+  garage    Garage   @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(ADMIN)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([garageId])
+  @@index([email])
+  @@map("user")
+}
+
+model Brand {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  
+  cars      Car[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("brand")
+}
+
+model Car {
+  id          String   @id @default(uuid())
+  garageId    String   @map("garage_id")
+  garage      Garage   @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  brandId     String   @map("brand_id")
+  brand       Brand    @relation(fields: [brandId], references: [id])
+  model       String
+  year        Int
+  price       Int
+  mileage     Int?
+  description String?
+  status      CarStatus @default(AVAILABLE)
+  images      String[] @default([])
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([garageId])
+  @@index([brandId])
+  @@index([status])
+  @@map("car")
+}
+
+enum CarStatus {
+  AVAILABLE
+  SOLD
+
+  @@map("car_status")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+
+  @@map("user_role")
+}
+
