@@ -23,8 +23,57 @@ export class PublicController {
         return res.status(404).json({ error: "Garage not found" });
       }
 
-      const cars = await CarService.listCars(req.garage.id, "AVAILABLE");
-      return res.json(cars);
+      // Parse query parameters
+      const {
+        page,
+        limit,
+        search,
+        brandId,
+        year,
+        orderBy,
+      } = req.query;
+
+      const filters: any = {
+        status: "AVAILABLE", // Sempre filtra apenas disponíveis na rota pública
+      };
+
+      if (search && typeof search === "string") {
+        filters.search = search;
+      }
+
+      if (brandId && typeof brandId === "string") {
+        filters.brandId = brandId;
+      }
+
+      if (year && typeof year === "string") {
+        const yearNum = parseInt(year);
+        if (!isNaN(yearNum)) {
+          filters.year = yearNum;
+        }
+      }
+
+      const pagination: any = {};
+      if (page && typeof page === "string") {
+        const pageNum = parseInt(page);
+        if (!isNaN(pageNum) && pageNum > 0) {
+          pagination.page = pageNum;
+        }
+      }
+      if (limit && typeof limit === "string") {
+        const limitNum = parseInt(limit);
+        if (!isNaN(limitNum) && limitNum > 0) {
+          pagination.limit = limitNum;
+        }
+      }
+      if (orderBy && typeof orderBy === "string") {
+        const validOrderBy = ["price_asc", "price_desc", "newest", "oldest"];
+        if (validOrderBy.includes(orderBy)) {
+          pagination.orderBy = orderBy;
+        }
+      }
+
+      const result = await CarService.listCars(req.garage.id, filters, pagination);
+      return res.json(result);
     } catch (error) {
       console.error("Error listing cars:", error);
       return res.status(500).json({ error: "Internal server error" });
