@@ -13,7 +13,8 @@ export function optionalUpload(fieldName: string, maxCount?: number) {
         : upload.single(fieldName);
       
       // Primeiro processa com multer
-      multerMiddleware(req, res, async (err: any) => {
+      // Usa type assertion para resolver conflito de tipos entre Express e Multer
+      multerMiddleware(req as any, res as any, async (err: any) => {
         if (err) {
           return next(err);
         }

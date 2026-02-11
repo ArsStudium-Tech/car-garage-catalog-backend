@@ -12,7 +12,8 @@ router.use(authenticate);
 
 router.get("/cars", AdminController.listCars);
 router.get("/cars/:id", AdminController.getCar);
-router.post("/cars", upload.array("images", 10), uploadToR2, AdminController.createCar);
+// Usa type assertion para resolver conflito de tipos entre Express e Multer
+router.post("/cars", upload.array("images", 10) as any, uploadToR2, AdminController.createCar);
 // PUT: usa multer opcional - processa FormData se houver, senão processa JSON
 router.put("/cars/:id", optionalUpload("images", 10), AdminController.updateCar);
 router.delete("/cars/:id", AdminController.deleteCar);
