@@ -19,7 +19,7 @@ FROM node:20
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/build ./build
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
 ENV NODE_ENV=production
@@ -27,4 +27,4 @@ ENV PORT=${PORT}
 
 EXPOSE ${PORT}
 
-CMD ["node", "build/shared/infra/http/express/server.js"]
+CMD ["node", "dist/server.js"]
