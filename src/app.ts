@@ -44,6 +44,9 @@ app.use((req, res, next) => {
 });
 
 // Rotas
+app.use("/ping", (req, res) => {
+  res.json({ message: "pong" });
+});
 app.use("/public", publicRoutes);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
