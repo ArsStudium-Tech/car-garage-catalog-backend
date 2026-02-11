@@ -142,16 +142,6 @@ export class AdminController {
       const { brandId, model, year, price, mileage, description, status, imagesToKeep, fuel, color, transmission, licensePlate, financeable, options } =
         req.body;
 
-      // Log para debug
-      console.log("Update car request:", {
-        carId: id,
-        hasImagesToKeep: imagesToKeep !== undefined,
-        imagesToKeepType: typeof imagesToKeep,
-        imagesToKeepValue: imagesToKeep,
-        hasFiles: !!req.files,
-        filesCount: Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0),
-      });
-
       const updateData: any = {};
 
       if (brandId) updateData.brandId = brandId;
@@ -176,75 +166,54 @@ export class AdminController {
         }
       }
 
-      // Processa imagens
+      // Processa imagens - LÓGICA SIMPLES
       const currentCar = await CarService.getCar(id, req.garage.id);
       if (!currentCar) {
         return res.status(404).json({ error: "Car not found" });
       }
 
-      const currentImages = currentCar.images || [];
-      let finalImages: string[] = [];
-
-      // Se imagesToKeep foi enviado, usa apenas essas imagens
+      // Imagens que estão no banco (R2)
+      const imagesInDatabase = currentCar.images || [];
+      
+      // Imagens que o frontend quer manter
+      let imagesToKeepFromFrontend: string[] = [];
       if (imagesToKeep !== undefined && imagesToKeep !== null && imagesToKeep !== '') {
         try {
-          const keepList = typeof imagesToKeep === 'string' ? JSON.parse(imagesToKeep) : imagesToKeep;
-          finalImages = Array.isArray(keepList) ? keepList : [];
+          imagesToKeepFromFrontend = typeof imagesToKeep === 'string' 
+            ? JSON.parse(imagesToKeep) 
+            : imagesToKeep;
+          if (!Array.isArray(imagesToKeepFromFrontend)) {
+            imagesToKeepFromFrontend = [];
+          }
         } catch (e) {
           console.error("Error parsing imagesToKeep:", e);
-          // Se não conseguir fazer parse, mantém todas as existentes
-          finalImages = currentImages;
+          imagesToKeepFromFrontend = [];
         }
-      } else {
-        // Se não foi especificado, mantém todas as existentes
-        finalImages = currentImages;
       }
 
-      // Normaliza URLs para comparação (remove espaços, normaliza trailing slashes)
-      const normalizeUrl = (url: string) => {
-        if (!url) return '';
-        return url.trim().replace(/\/$/, ''); // Remove trailing slash
-      };
+      // Adiciona novas imagens que foram enviadas
+      const uploadedUrls = (req as any).uploadedUrls || [];
+      const finalImages = [...imagesToKeepFromFrontend, ...uploadedUrls];
 
-      // Cria um Set com URLs normalizadas das imagens a manter para comparação rápida
-      const finalImagesSet = new Set(finalImages.map(normalizeUrl));
-
-      // Identifica imagens que foram removidas (estavam no carro mas não estão em finalImages)
-      const imagesToDelete = currentImages.filter(
-        (img) => {
-          const normalized = normalizeUrl(img);
-          return normalized && !finalImagesSet.has(normalized);
-        }
+      // Compara: imagens no banco vs imagens finais
+      // As que estão no banco mas NÃO estão nas finais = DELETAR
+      const imagesToDelete = imagesInDatabase.filter(
+        (img) => !finalImages.includes(img)
       );
 
-      // Log para debug
-      console.log("Image update debug:", {
-        currentImagesCount: currentImages.length,
-        finalImagesCount: finalImages.length,
-        imagesToDeleteCount: imagesToDelete.length,
-        imagesToDelete: imagesToDelete,
-      });
-
-      // Deleta imagens removidas do R2
-      if (imagesToDelete.length > 0) {
-        try {
-          console.log(`Deleting ${imagesToDelete.length} images from R2`);
-          await StorageService.deleteImages(imagesToDelete);
-          console.log("Successfully deleted images from R2");
-        } catch (error) {
-          console.error("Error deleting images from R2:", error);
-          // Continua mesmo se falhar a deleção
-        }
+      // DELETA as imagens que sobraram
+      // A função deleteImages vai comparar com o R2 e deletar imagens órfãs também
+      try {
+        // Passa as imagens finais para que a função possa comparar e deletar órfãs
+        await StorageService.deleteImages(imagesToDelete, req.garage.id, id, finalImages);
+        console.log(`✅ Successfully processed image deletion`);
+      } catch (error) {
+        console.error("❌ Error deleting images from R2:", error);
       }
 
-      // Adiciona novas imagens se houver (URLs do R2 vêm do middleware uploadToR2)
-      const uploadedUrls = (req as any).uploadedUrls || [];
-      if (uploadedUrls.length > 0) {
-        finalImages = [...finalImages, ...uploadedUrls];
-      }
-
+      // Atualiza a tabela com as imagens finais
       updateData.images = finalImages;
-
+     
       const result = await CarService.updateCar(id, req.garage.id, updateData);
 
       if (!result || (typeof result === 'object' && 'count' in result && result.count === 0)) {
@@ -256,8 +225,8 @@ export class AdminController {
         return res.json(result);
       }
 
-      const updatedCar = await CarService.getCar(id, req.garage.id);
-      return res.json(updatedCar);
+      //const updatedCar = await CarService.getCar(id, req.garage.id);
+      return res.json(result);
     } catch (error) {
       console.error("Error updating car:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -282,7 +251,7 @@ export class AdminController {
       // Deleta todas as imagens do R2
       if (car.images && car.images.length > 0) {
         try {
-          await StorageService.deleteImages(car.images);
+          await StorageService.deleteImages(car.images, req.garage.id, id);
         } catch (error) {
           console.error("Error deleting images from R2:", error);
           // Continua mesmo se falhar a deleção
