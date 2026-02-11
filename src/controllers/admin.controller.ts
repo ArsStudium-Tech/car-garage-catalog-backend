@@ -3,7 +3,7 @@ import { AuthRequest } from "../middlewares/auth";
 import { CarService } from "../services/car.service";
 import { GarageService } from "../services/garage.service";
 import { BrandService } from "../services/brand.service";
-import path from "path";
+import { StorageService } from "../services/storage.service";
 
 export class AdminController {
   static async listCars(req: AuthRequest, res: Response) {
@@ -13,11 +13,20 @@ export class AdminController {
       }
 
       const { status } = req.query;
-      const cars = await CarService.listCars(
+      const filters: any = {};
+      if (status) {
+        filters.status = status;
+      }
+      
+      // Para admin, retornar todos os carros sem paginação
+      const result = await CarService.listCars(
         req.garage.id,
-        status as any
+        filters,
+        { limit: 10000 } // Limite alto para pegar todos
       );
-      return res.json(cars);
+      
+      // Retornar apenas o array de carros para manter compatibilidade
+      return res.json(result.cars);
     } catch (error) {
       console.error("Error listing cars:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -50,7 +59,7 @@ export class AdminController {
         return res.status(404).json({ error: "Garage not found" });
       }
 
-      const { brandId, model, year, price, mileage, description } = req.body;
+      const { brandId, model, year, price, mileage, description, fuel, color, transmission, licensePlate, financeable, options } = req.body;
 
       if (!brandId || !model || !year || !price) {
         return res.status(400).json({
@@ -58,24 +67,21 @@ export class AdminController {
         });
       }
 
-      // Processa as imagens enviadas
+      // Processa as imagens enviadas (URLs do R2 vêm do middleware uploadToR2)
       const images: string[] = [];
-      if (req.files) {
-        let files: Express.Multer.File[] = [];
-        
-        if (Array.isArray(req.files)) {
-          files = req.files;
-        } else if (typeof req.files === 'object') {
-          // Se for um objeto com múltiplos campos, pega todos os arquivos
-          files = Object.values(req.files).flat();
+      const uploadedUrls = (req as any).uploadedUrls || [];
+      if (uploadedUrls.length > 0) {
+        images.push(...uploadedUrls);
+      }
+
+      // Processa options se for string JSON
+      let optionsObj: Record<string, boolean> | undefined = undefined;
+      if (options) {
+        try {
+          optionsObj = typeof options === 'string' ? JSON.parse(options) : options;
+        } catch (e) {
+          console.error("Error parsing options:", e);
         }
-        
-        images.push(
-          ...files.map((file: Express.Multer.File) => {
-            // Retorna o caminho relativo ou URL da imagem
-            return `/uploads/${path.basename(file.path)}`;
-          })
-        );
       }
 
       const car = await CarService.createCar(req.garage.id, {
@@ -86,6 +92,12 @@ export class AdminController {
         mileage: mileage ? parseInt(mileage) : undefined,
         description,
         images,
+        fuel: fuel || undefined,
+        color: color || undefined,
+        transmission: transmission || undefined,
+        licensePlate: licensePlate || undefined,
+        financeable: financeable === 'true' || financeable === true,
+        options: optionsObj,
       });
 
       return res.status(201).json(car);
@@ -102,7 +114,7 @@ export class AdminController {
       }
 
       const { id } = req.params;
-      const { brandId, model, year, price, mileage, description, status, imagesToKeep } =
+      const { brandId, model, year, price, mileage, description, status, imagesToKeep, fuel, color, transmission, licensePlate, financeable, options } =
         req.body;
 
       const updateData: any = {};
@@ -114,9 +126,27 @@ export class AdminController {
       if (mileage !== undefined) updateData.mileage = mileage ? parseInt(mileage) : null;
       if (description !== undefined) updateData.description = description;
       if (status) updateData.status = status;
+      if (fuel !== undefined) updateData.fuel = fuel || null;
+      if (color !== undefined) updateData.color = color || null;
+      if (transmission !== undefined) updateData.transmission = transmission || null;
+      if (licensePlate !== undefined) updateData.licensePlate = licensePlate || null;
+      if (financeable !== undefined) updateData.financeable = financeable === 'true' || financeable === true;
+      
+      // Processa options se for string JSON
+      if (options !== undefined) {
+        try {
+          updateData.options = typeof options === 'string' ? (options ? JSON.parse(options) : null) : options;
+        } catch (e) {
+          console.error("Error parsing options:", e);
+        }
+      }
 
       // Processa imagens
       const currentCar = await CarService.getCar(id, req.garage.id);
+      if (!currentCar) {
+        return res.status(404).json({ error: "Car not found" });
+      }
+
       let finalImages: string[] = [];
 
       // Se imagesToKeep foi enviado, usa apenas essas imagens
@@ -126,28 +156,32 @@ export class AdminController {
           finalImages = Array.isArray(keepList) ? keepList : [];
         } catch (e) {
           // Se não conseguir fazer parse, mantém todas as existentes
-          finalImages = currentCar?.images || [];
+          finalImages = currentCar.images || [];
         }
       } else {
         // Se não foi especificado, mantém todas as existentes
-        finalImages = currentCar?.images || [];
+        finalImages = currentCar.images || [];
       }
 
-      // Adiciona novas imagens se houver
-      if (req.files) {
-        let files: Express.Multer.File[] = [];
-        
-        if (Array.isArray(req.files)) {
-          files = req.files;
-        } else if (typeof req.files === 'object') {
-          files = Object.values(req.files).flat();
+      // Identifica imagens que foram removidas (estavam no carro mas não estão em finalImages)
+      const imagesToDelete = (currentCar.images || []).filter(
+        (img) => !finalImages.includes(img)
+      );
+
+      // Deleta imagens removidas do R2
+      if (imagesToDelete.length > 0) {
+        try {
+          await StorageService.deleteImages(imagesToDelete);
+        } catch (error) {
+          console.error("Error deleting images from R2:", error);
+          // Continua mesmo se falhar a deleção
         }
-        
-        const newImages = files.map((file: Express.Multer.File) => {
-          return `/uploads/${path.basename(file.path)}`;
-        });
-        
-        finalImages = [...finalImages, ...newImages];
+      }
+
+      // Adiciona novas imagens se houver (URLs do R2 vêm do middleware uploadToR2)
+      const uploadedUrls = (req as any).uploadedUrls || [];
+      if (uploadedUrls.length > 0) {
+        finalImages = [...finalImages, ...uploadedUrls];
       }
 
       updateData.images = finalImages;
@@ -178,6 +212,25 @@ export class AdminController {
       }
 
       const { id } = req.params;
+      
+      // Busca o carro antes de deletar para pegar as imagens
+      const car = await CarService.getCar(id, req.garage.id);
+      
+      if (!car) {
+        return res.status(404).json({ error: "Car not found" });
+      }
+
+      // Deleta todas as imagens do R2
+      if (car.images && car.images.length > 0) {
+        try {
+          await StorageService.deleteImages(car.images);
+        } catch (error) {
+          console.error("Error deleting images from R2:", error);
+          // Continua mesmo se falhar a deleção
+        }
+      }
+
+      // Deleta o carro do banco
       const result = await CarService.deleteCar(id, req.garage.id);
 
       if (result.count === 0) {
@@ -222,23 +275,35 @@ export class AdminController {
       if (whatsapp !== undefined) updateData.whatsapp = whatsapp;
       if (active !== undefined) updateData.active = active;
 
-      // Processa upload de logo se houver
-      if (req.files) {
-        let files: Express.Multer.File[] = [];
-        
-        if (Array.isArray(req.files)) {
-          files = req.files;
-        } else if (typeof req.files === 'object') {
-          // Se for um objeto com múltiplos campos, pega todos os arquivos
-          files = Object.values(req.files).flat();
+      // Busca settings atuais para pegar logo antigo
+      const currentSettings = await GarageService.getSettings(req.garage.id);
+      const oldLogoUrl = currentSettings?.logoUrl;
+
+      // Processa upload de logo se houver (URL do R2 vem do middleware uploadToR2)
+      const uploadedUrls = (req as any).uploadedUrls || [];
+      if (uploadedUrls.length > 0) {
+        // Deleta logo antigo do R2 se existir
+        if (oldLogoUrl) {
+          try {
+            await StorageService.deleteImage(oldLogoUrl);
+          } catch (error) {
+            console.error("Error deleting old logo from R2:", error);
+            // Continua mesmo se falhar a deleção
+          }
         }
-        
-        if (files.length > 0) {
-          const logoFile = files[0];
-          updateData.logoUrl = `/uploads/${path.basename(logoFile.path)}`;
-        }
+        updateData.logoUrl = uploadedUrls[0];
       } else if (logoUrl !== undefined) {
         // Se não houver upload mas logoUrl foi enviado (pode ser para remover)
+        if (logoUrl === null || logoUrl === '') {
+          // Se está removendo o logo, deleta do R2
+          if (oldLogoUrl) {
+            try {
+              await StorageService.deleteImage(oldLogoUrl);
+            } catch (error) {
+              console.error("Error deleting logo from R2:", error);
+            }
+          }
+        }
         updateData.logoUrl = logoUrl || null;
       }
 

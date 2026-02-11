@@ -9,6 +9,12 @@ export interface CreateCarData {
   mileage?: number;
   description?: string;
   images?: string[];
+  fuel?: string;
+  color?: string;
+  transmission?: string;
+  licensePlate?: string;
+  financeable?: boolean;
+  options?: Record<string, boolean>;
 }
 
 export interface UpdateCarData {
@@ -20,6 +26,12 @@ export interface UpdateCarData {
   description?: string;
   status?: CarStatus;
   images?: string[];
+  fuel?: string;
+  color?: string;
+  transmission?: string;
+  licensePlate?: string;
+  financeable?: boolean;
+  options?: Record<string, boolean>;
 }
 
 export interface ListCarsFilters {

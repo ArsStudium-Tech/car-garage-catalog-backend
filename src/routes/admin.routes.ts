@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { resolveGarage } from "../middlewares/resolveGarage";
 import { authenticate } from "../middlewares/auth";
-import { upload } from "../middlewares/upload";
+import { upload, uploadToR2 } from "../middlewares/upload";
 import { optionalUpload } from "../middlewares/optionalUpload";
 import { AdminController } from "../controllers/admin.controller";
 
@@ -12,7 +12,7 @@ router.use(authenticate);
 
 router.get("/cars", AdminController.listCars);
 router.get("/cars/:id", AdminController.getCar);
-router.post("/cars", upload.array("images", 10), AdminController.createCar);
+router.post("/cars", upload.array("images", 10), uploadToR2, AdminController.createCar);
 // PUT: usa multer opcional - processa FormData se houver, senão processa JSON
 router.put("/cars/:id", optionalUpload("images", 10), AdminController.updateCar);
 router.delete("/cars/:id", AdminController.deleteCar);

@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
 import publicRoutes from "./routes/public.routes";
 import adminRoutes from "./routes/admin.routes";
 import authRoutes from "./routes/auth.routes";
@@ -43,10 +42,6 @@ app.use((req, res, next) => {
   // Para outros tipos, apenas passa adiante
   next();
 });
-
-// Servir arquivos estáticos (uploads)
-const uploadDir = process.env.UPLOAD_DIR || "./uploads";
-app.use("/uploads", express.static(path.resolve(uploadDir)));
 
 // Rotas
 app.use("/public", publicRoutes);

@@ -71,6 +71,13 @@ model Car {
   description String?
   status      CarStatus @default(AVAILABLE)
   images      String[] @default([])
+  
+  fuel        String?  @map("fuel")
+  color       String?  @map("color")
+  transmission String? @map("transmission")
+  licensePlate String? @map("license_plate")
+  financeable Boolean  @default(false) @map("financeable")
+  options     Json?   @map("options")
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
