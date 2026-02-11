@@ -25,7 +25,7 @@ jobs:
 
             if [ ! -d "/home/david/car-garage-catalog-backend/.git" ]; then
               rm -rf /home/david/car-garage-catalog-backend
-              git clone https://github.com/${{ github.repository }} /home/david/car-garage-catalog-backend
+              git clone git@github.com:ArsStudium-Tech/car-garage-catalog-backend.git /home/david/car-garage-catalog-backend
             else
               cd /home/david/car-garage-catalog-backend
               git fetch origin main
