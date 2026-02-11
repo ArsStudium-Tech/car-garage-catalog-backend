@@ -67,13 +67,6 @@ export class AdminController {
         });
       }
 
-      // Processa as imagens enviadas (URLs do R2 vêm do middleware uploadToR2)
-      const images: string[] = [];
-      const uploadedUrls = (req as any).uploadedUrls || [];
-      if (uploadedUrls.length > 0) {
-        images.push(...uploadedUrls);
-      }
-
       // Processa options se for string JSON
       let optionsObj: Record<string, boolean> | undefined = undefined;
       if (options) {
@@ -84,6 +77,7 @@ export class AdminController {
         }
       }
 
+      // Cria o carro primeiro (sem imagens ainda)
       const car = await CarService.createCar(req.garage.id, {
         brandId,
         model,
@@ -91,7 +85,7 @@ export class AdminController {
         price: parseInt(price),
         mileage: mileage ? parseInt(mileage) : undefined,
         description,
-        images,
+        images: [], // Será atualizado após upload
         fuel: fuel || undefined,
         color: color || undefined,
         transmission: transmission || undefined,
@@ -100,7 +94,38 @@ export class AdminController {
         options: optionsObj,
       });
 
-      return res.status(201).json(car);
+      // Agora faz upload das imagens com o carId
+      const images: string[] = [];
+      const uploadedFiles = (req as any).uploadedFiles || [];
+      
+      if (uploadedFiles.length > 0) {
+        for (const file of uploadedFiles) {
+          if (!file.buffer) {
+            continue;
+          }
+
+          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = require('path').extname(file.originalname);
+          const filename = `car-${uniqueSuffix}${ext}`;
+
+          // Faz upload para R2 com organização: garageId/carId/filename
+          const url = await StorageService.uploadImage(
+            file.buffer,
+            filename,
+            file.mimetype,
+            req.garage.id,
+            car.id
+          );
+          images.push(url);
+        }
+
+        // Atualiza o carro com as URLs das imagens
+        await CarService.updateCar(car.id, req.garage.id, { images });
+      }
+
+      // Busca o carro atualizado para retornar
+      const updatedCar = await CarService.getCar(car.id, req.garage.id);
+      return res.status(201).json(updatedCar || car);
     } catch (error) {
       console.error("Error creating car:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -116,6 +141,16 @@ export class AdminController {
       const { id } = req.params;
       const { brandId, model, year, price, mileage, description, status, imagesToKeep, fuel, color, transmission, licensePlate, financeable, options } =
         req.body;
+
+      // Log para debug
+      console.log("Update car request:", {
+        carId: id,
+        hasImagesToKeep: imagesToKeep !== undefined,
+        imagesToKeepType: typeof imagesToKeep,
+        imagesToKeepValue: imagesToKeep,
+        hasFiles: !!req.files,
+        filesCount: Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0),
+      });
 
       const updateData: any = {};
 
@@ -147,31 +182,55 @@ export class AdminController {
         return res.status(404).json({ error: "Car not found" });
       }
 
+      const currentImages = currentCar.images || [];
       let finalImages: string[] = [];
 
       // Se imagesToKeep foi enviado, usa apenas essas imagens
-      if (imagesToKeep) {
+      if (imagesToKeep !== undefined && imagesToKeep !== null && imagesToKeep !== '') {
         try {
           const keepList = typeof imagesToKeep === 'string' ? JSON.parse(imagesToKeep) : imagesToKeep;
           finalImages = Array.isArray(keepList) ? keepList : [];
         } catch (e) {
+          console.error("Error parsing imagesToKeep:", e);
           // Se não conseguir fazer parse, mantém todas as existentes
-          finalImages = currentCar.images || [];
+          finalImages = currentImages;
         }
       } else {
         // Se não foi especificado, mantém todas as existentes
-        finalImages = currentCar.images || [];
+        finalImages = currentImages;
       }
 
+      // Normaliza URLs para comparação (remove espaços, normaliza trailing slashes)
+      const normalizeUrl = (url: string) => {
+        if (!url) return '';
+        return url.trim().replace(/\/$/, ''); // Remove trailing slash
+      };
+
+      // Cria um Set com URLs normalizadas das imagens a manter para comparação rápida
+      const finalImagesSet = new Set(finalImages.map(normalizeUrl));
+
       // Identifica imagens que foram removidas (estavam no carro mas não estão em finalImages)
-      const imagesToDelete = (currentCar.images || []).filter(
-        (img) => !finalImages.includes(img)
+      const imagesToDelete = currentImages.filter(
+        (img) => {
+          const normalized = normalizeUrl(img);
+          return normalized && !finalImagesSet.has(normalized);
+        }
       );
+
+      // Log para debug
+      console.log("Image update debug:", {
+        currentImagesCount: currentImages.length,
+        finalImagesCount: finalImages.length,
+        imagesToDeleteCount: imagesToDelete.length,
+        imagesToDelete: imagesToDelete,
+      });
 
       // Deleta imagens removidas do R2
       if (imagesToDelete.length > 0) {
         try {
+          console.log(`Deleting ${imagesToDelete.length} images from R2`);
           await StorageService.deleteImages(imagesToDelete);
+          console.log("Successfully deleted images from R2");
         } catch (error) {
           console.error("Error deleting images from R2:", error);
           // Continua mesmo se falhar a deleção

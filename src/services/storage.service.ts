@@ -26,21 +26,39 @@ export class StorageService {
    * @param buffer Buffer do arquivo
    * @param filename Nome do arquivo
    * @param mimetype Tipo MIME do arquivo
+   * @param garageId ID da garagem (obrigatório)
+   * @param carId ID do carro (opcional, para logos use null)
    * @returns URL pública da imagem
    */
   static async uploadImage(
     buffer: Buffer,
     filename: string,
-    mimetype: string
+    mimetype: string,
+    garageId: string,
+    carId?: string | null
   ): Promise<string> {
     if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
       throw new Error("R2 credentials not configured");
     }
 
+    if (!garageId) {
+      throw new Error("garageId is required");
+    }
+
     try {
+      // Organiza a estrutura: {garageId}/{carId}/filename ou {garageId}/logos/filename
+      let key: string;
+      if (carId) {
+        // Imagem de carro: garageId/carId/filename
+        key = `${garageId}/${carId}/${filename}`;
+      } else {
+        // Logo ou outro arquivo da garagem: garageId/logos/filename
+        key = `${garageId}/logos/${filename}`;
+      }
+
       const command = new PutObjectCommand({
         Bucket: bucketName,
-        Key: filename,
+        Key: key,
         Body: buffer,
         ContentType: mimetype,
       });
@@ -50,8 +68,8 @@ export class StorageService {
       // Retorna a URL pública
       // Se publicUrl termina com /, não adiciona outro /
       const url = publicUrl.endsWith("/") 
-        ? `${publicUrl}${filename}` 
-        : `${publicUrl}/${filename}`;
+        ? `${publicUrl}${key}` 
+        : `${publicUrl}/${key}`;
 
       return url;
     } catch (error) {
