@@ -41,6 +41,7 @@ export interface ListCarsFilters {
   year?: number;
   minPrice?: number;
   maxPrice?: number;
+  financeable?: boolean;
 }
 
 export interface PaginationParams {
@@ -75,6 +76,10 @@ export class CarService {
 
     if (filters?.year) {
       where.year = filters.year;
+    }
+
+    if (filters?.financeable !== undefined) {
+      where.financeable = filters.financeable;
     }
 
     if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {

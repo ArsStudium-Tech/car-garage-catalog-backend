@@ -32,6 +32,9 @@ export class PublicController {
         brandId,
         year,
         orderBy,
+        financeable,
+        minPrice,
+        maxPrice,
       } = req.query;
 
       const filters: any = {
@@ -50,6 +53,28 @@ export class PublicController {
         const yearNum = parseInt(year);
         if (!isNaN(yearNum)) {
           filters.year = yearNum;
+        }
+      }
+
+      if (financeable !== undefined) {
+        if (financeable === "true" || financeable === "1") {
+          filters.financeable = true;
+        } else if (financeable === "false" || financeable === "0") {
+          filters.financeable = false;
+        }
+      }
+
+      if (minPrice && typeof minPrice === "string") {
+        const minPriceNum = parseInt(minPrice);
+        if (!isNaN(minPriceNum) && minPriceNum >= 0) {
+          filters.minPrice = minPriceNum;
+        }
+      }
+
+      if (maxPrice && typeof maxPrice === "string") {
+        const maxPriceNum = parseInt(maxPrice);
+        if (!isNaN(maxPriceNum) && maxPriceNum >= 0) {
+          filters.maxPrice = maxPriceNum;
         }
       }
 
