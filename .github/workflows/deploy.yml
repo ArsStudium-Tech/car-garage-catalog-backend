@@ -51,6 +51,11 @@ jobs:
             echo "WEBHOOK_URL=${{ secrets.WEBHOOK_URL }}" >> .env
             echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> .env
             echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> .env
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}" >> .env
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}" >> .env
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}" >> .env
+            echo "R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}" >> .env
+            echo "R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}" >> .env
 
             docker compose up -d --build
           EOF
