@@ -11,6 +11,15 @@ export interface GarageRequest extends Request {
     secondaryColor?: string | null;
     whatsapp?: string | null;
     active: boolean;
+    endereco?: {
+      logradouro?: string | null;
+      bairro?: string | null;
+      numero?: string | null;
+      cidade?: string | null;
+      estado?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+    } | null;
   };
 }
 
@@ -104,7 +113,22 @@ export async function resolveGarage(
       return res.status(404).json({ error: "Garage not found" });
     }
 
-    req.garage = garage;
+    // Transforma os campos de endereço em um objeto e remove os campos individuais
+    const { logradouro, bairro, numero, cidade, estado, latitude, longitude, ...garageWithoutAddress } = garage;
+    
+    req.garage = {
+      ...garageWithoutAddress,
+      endereco: {
+        logradouro,
+        bairro,
+        numero,
+        cidade,
+        estado,
+        latitude,
+        longitude,
+      },
+    };
+    
     next();
   } catch (error) {
     console.error("Error resolving garage:", error);
