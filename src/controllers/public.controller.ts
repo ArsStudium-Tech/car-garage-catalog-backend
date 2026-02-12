@@ -2,6 +2,7 @@ import { Response } from "express";
 import { GarageRequest } from "../middlewares/resolveGarage";
 import { GarageService } from "../services/garage.service";
 import { CarService } from "../services/car.service";
+import { maskCarLicensePlate } from "../utils/license-plate-masker";
 
 export class PublicController {
   static async getGarage(req: GarageRequest, res: Response) {
@@ -73,7 +74,12 @@ export class PublicController {
       }
 
       const result = await CarService.listCars(req.garage.id, filters, pagination);
-      return res.json(result);
+      // Mascara as placas dos veículos
+      const maskedResult = {
+        ...result,
+        cars: maskCarLicensePlate(result.cars),
+      };
+      return res.json(maskedResult);
     } catch (error) {
       console.error("Error listing cars:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -93,7 +99,8 @@ export class PublicController {
         return res.status(404).json({ error: "Car not found" });
       }
 
-      return res.json(car);
+      // Mascara a placa do veículo
+      return res.json(maskCarLicensePlate(car));
     } catch (error) {
       console.error("Error getting car:", error);
       return res.status(500).json({ error: "Internal server error" });

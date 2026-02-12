@@ -5,6 +5,7 @@ import { GarageService } from "../services/garage.service";
 import { BrandService } from "../services/brand.service";
 import { StorageService } from "../services/storage.service";
 import { convertToWebP } from "../utils/image-converter";
+import { maskCarLicensePlate } from "../utils/license-plate-masker";
 
 export class AdminController {
   static async listCars(req: AuthRequest, res: Response) {
@@ -47,7 +48,12 @@ export class AdminController {
         pagination
       );
       
-      return res.json(result);
+      // Mascara as placas dos veículos
+      const maskedResult = {
+        ...result,
+        cars: maskCarLicensePlate(result.cars),
+      };
+      return res.json(maskedResult);
     } catch (error) {
       console.error("Error listing cars:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -67,7 +73,8 @@ export class AdminController {
         return res.status(404).json({ error: "Car not found" });
       }
 
-      return res.json(car);
+      // Mascara a placa do veículo
+      return res.json(maskCarLicensePlate(car));
     } catch (error) {
       console.error("Error getting car:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -151,7 +158,8 @@ export class AdminController {
 
       // Busca o carro atualizado para retornar
       const updatedCar = await CarService.getCar(car.id, req.garage.id);
-      return res.status(201).json(updatedCar || car);
+      // Mascara a placa do veículo
+      return res.status(201).json(maskCarLicensePlate(updatedCar || car));
     } catch (error) {
       console.error("Error creating car:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -248,7 +256,8 @@ export class AdminController {
 
       // Se result já é o carro atualizado (com brand), retorna direto
       if (result && typeof result === 'object' && 'id' in result) {
-        return res.json(result);
+        // Mascara a placa do veículo
+        return res.json(maskCarLicensePlate(result));
       }
 
       //const updatedCar = await CarService.getCar(id, req.garage.id);
