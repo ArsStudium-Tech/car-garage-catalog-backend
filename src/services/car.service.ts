@@ -111,7 +111,7 @@ export class CarService {
     const skip = (page - 1) * limit;
 
     // Define ordenação baseada no parâmetro
-    let orderBy: any = { createdAt: "desc" }; // padrão: mais novo primeiro
+    let orderBy: any = { year: "desc" }; // padrão: mais novo primeiro
     
     if (pagination?.orderBy) {
       switch (pagination.orderBy) {
@@ -122,10 +122,10 @@ export class CarService {
           orderBy = { price: "desc" };
           break;
         case "newest":
-          orderBy = { createdAt: "desc" };
+          orderBy = { year: "desc" };
           break;
         case "oldest":
-          orderBy = { createdAt: "asc" };
+          orderBy = { year: "asc" };
           break;
       }
     }
