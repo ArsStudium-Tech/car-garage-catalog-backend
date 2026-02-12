@@ -199,5 +199,26 @@ export class CarService {
       },
     });
   }
+
+  static async listYearsWithCars(garageId: string, status?: CarStatus): Promise<number[]> {
+    const where: any = { garageId };
+    
+    if (status) {
+      where.status = status;
+    }
+
+    const result = await prisma.car.groupBy({
+      where,
+      by: ['year'],
+      _count: {
+        year: true,
+      },
+      orderBy: {
+        year: 'desc',
+      },
+    });
+
+    return result.map(item => item.year);
+  }
 }
 

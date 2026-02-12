@@ -99,5 +99,20 @@ export class PublicController {
       return res.status(500).json({ error: "Internal server error" });
     }
   }
+
+  static async listYearsWithCars(req: GarageRequest, res: Response) {
+    try {
+      if (!req.garage) {
+        return res.status(404).json({ error: "Garage not found" });
+      }
+
+      // Sempre filtra apenas disponíveis na rota pública
+      const years = await CarService.listYearsWithCars(req.garage.id, "AVAILABLE");
+      return res.json(years);
+    } catch (error) {
+      console.error("Error listing years with cars:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
 }
 

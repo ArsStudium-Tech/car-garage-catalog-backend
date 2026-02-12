@@ -25,5 +25,24 @@ export class BrandService {
       where: { name },
     });
   }
+
+  static async listBrandsWithCars(garageId: string, activeOnly: boolean = true) {
+    const where: any = {
+      cars: {
+        some: {
+          garageId: garageId,
+        },
+      },
+    };
+    
+    if (activeOnly) {
+      where.active = true;
+    }
+
+    return await prisma.brand.findMany({
+      where,
+      orderBy: { name: "asc" },
+    });
+  }
 }
 

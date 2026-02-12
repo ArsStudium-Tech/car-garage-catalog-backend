@@ -10,6 +10,8 @@ router.get("/brands", BrandController.listBrands);
 router.use(resolveGarage);
 
 router.get("/garage-by-domain", PublicController.getGarage);
+router.get("/brands/with-cars", BrandController.listBrandsWithCars);
+router.get("/years/with-cars", PublicController.listYearsWithCars);
 router.get("/cars", PublicController.listCars);
 router.get("/cars/:id", PublicController.getCar);
 
