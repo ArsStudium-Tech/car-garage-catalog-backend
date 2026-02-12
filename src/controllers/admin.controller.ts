@@ -327,8 +327,15 @@ export class AdminController {
         return res.status(404).json({ error: "Garage not found" });
       }
 
-      const { name, logoUrl, primaryColor, secondaryColor, whatsapp, active } =
-        req.body;
+      const { 
+        name, 
+        logoUrl, 
+        primaryColor, 
+        secondaryColor, 
+        whatsapp, 
+        active,
+        endereco
+      } = req.body;
 
       const updateData: any = {};
       if (name !== undefined) updateData.name = name;
@@ -337,6 +344,10 @@ export class AdminController {
         updateData.secondaryColor = secondaryColor;
       if (whatsapp !== undefined) updateData.whatsapp = whatsapp;
       if (active !== undefined) updateData.active = active;
+      if (endereco !== undefined) {
+        // Se endereco vier como string (do FormData), faz o parse
+        updateData.endereco = typeof endereco === 'string' ? JSON.parse(endereco) : endereco;
+      }
 
       // Busca settings atuais para pegar logo antigo
       const currentSettings = await GarageService.getSettings(req.garage.id);

@@ -16,12 +16,17 @@ model Garage {
   secondaryColor String?  @map("secondary_color")
   whatsapp       String?
   active         Boolean  @default(true)
-
-  cars           Car[]
-  users          User[]
-
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+  bairro         String?  @map("bairro")
+  cidade         String?  @map("cidade")
+  estado         String?  @map("estado")
+  latitude       Float?   @map("latitude")
+  logradouro     String?  @map("logradouro")
+  longitude      Float?   @map("longitude")
+  numero         String?  @map("numero")
+  cars           Car[]
+  users          User[]
 
   @@map("garage")
 }
@@ -29,15 +34,13 @@ model Garage {
 model User {
   id        String   @id @default(uuid())
   garageId  String   @map("garage_id")
-  garage    Garage   @relation(fields: [garageId], references: [id], onDelete: Cascade)
-
   email     String   @unique
   password  String
   name      String
   role      UserRole @default(ADMIN)
-
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  garage    Garage   @relation(fields: [garageId], references: [id], onDelete: Cascade)
 
   @@index([garageId])
   @@index([email])
@@ -48,39 +51,34 @@ model Brand {
   id        String   @id @default(uuid())
   name      String   @unique
   active    Boolean  @default(true)
-  
-  cars      Car[]
-
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  cars      Car[]
 
   @@map("brand")
 }
 
 model Car {
-  id          String   @id @default(uuid())
-  garageId    String   @map("garage_id")
-  garage      Garage   @relation(fields: [garageId], references: [id], onDelete: Cascade)
-
-  brandId     String   @map("brand_id")
-  brand       Brand    @relation(fields: [brandId], references: [id])
-  model       String
-  year        Int
-  price       Int
-  mileage     Int?
-  description String?
-  status      CarStatus @default(AVAILABLE)
-  images      String[] @default([])
-  
-  fuel        String?  @map("fuel")
-  color       String?  @map("color")
-  transmission String? @map("transmission")
-  licensePlate String? @map("license_plate")
-  financeable Boolean  @default(false) @map("financeable")
-  options     Json?   @map("options")
-
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  garageId     String    @map("garage_id")
+  brandId      String    @map("brand_id")
+  model        String
+  year         Int
+  price        Int
+  mileage      Int?
+  description  String?
+  status       CarStatus @default(AVAILABLE)
+  images       String[]  @default([])
+  fuel         String?   @map("fuel")
+  color        String?   @map("color")
+  transmission String?   @map("transmission")
+  licensePlate String?   @map("license_plate")
+  financeable  Boolean   @default(false) @map("financeable")
+  options      Json?     @map("options")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  brand        Brand     @relation(fields: [brandId], references: [id])
+  garage       Garage    @relation(fields: [garageId], references: [id], onDelete: Cascade)
 
   @@index([garageId])
   @@index([brandId])
@@ -101,4 +99,3 @@ enum UserRole {
 
   @@map("user_role")
 }
-
