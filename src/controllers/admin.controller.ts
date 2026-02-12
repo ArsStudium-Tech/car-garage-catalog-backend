@@ -4,6 +4,7 @@ import { CarService } from "../services/car.service";
 import { GarageService } from "../services/garage.service";
 import { BrandService } from "../services/brand.service";
 import { StorageService } from "../services/storage.service";
+import { convertToWebP } from "../utils/image-converter";
 
 export class AdminController {
   static async listCars(req: AuthRequest, res: Response) {
@@ -12,21 +13,41 @@ export class AdminController {
         return res.status(404).json({ error: "Garage not found" });
       }
 
-      const { status } = req.query;
+      const { status, brandId, search, page, limit, orderBy } = req.query;
       const filters: any = {};
+      
       if (status) {
         filters.status = status;
       }
       
-      // Para admin, retornar todos os carros sem paginação
+      if (brandId) {
+        filters.brandId = brandId as string;
+      }
+      
+      if (search) {
+        filters.search = search as string;
+      }
+      
+      const pagination: any = {};
+      if (page) {
+        pagination.page = parseInt(page as string) || 1;
+      }
+      if (limit) {
+        pagination.limit = parseInt(limit as string) || 10;
+      } else {
+        pagination.limit = 10; // Default 10 por página
+      }
+      if (orderBy) {
+        pagination.orderBy = orderBy as string;
+      }
+      
       const result = await CarService.listCars(
         req.garage.id,
         filters,
-        { limit: 10000 } // Limite alto para pegar todos
+        pagination
       );
       
-      // Retornar apenas o array de carros para manter compatibilidade
-      return res.json(result.cars);
+      return res.json(result);
     } catch (error) {
       console.error("Error listing cars:", error);
       return res.status(500).json({ error: "Internal server error" });
@@ -104,15 +125,20 @@ export class AdminController {
             continue;
           }
 
+          // Converte a imagem para WebP antes do upload
+          const { buffer: webpBuffer, mimetype: webpMimetype } = await convertToWebP(
+            file.buffer,
+            file.mimetype
+          );
+
           const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const ext = require('path').extname(file.originalname);
-          const filename = `car-${uniqueSuffix}${ext}`;
+          const filename = `car-${uniqueSuffix}.webp`;
 
           // Faz upload para R2 com organização: garageId/carId/filename
           const url = await StorageService.uploadImage(
-            file.buffer,
+            webpBuffer,
             filename,
-            file.mimetype,
+            webpMimetype,
             req.garage.id,
             car.id
           );

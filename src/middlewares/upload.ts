@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import { StorageService } from "../services/storage.service";
 import { Request, Response, NextFunction } from "express";
+import { convertToWebP } from "../utils/image-converter";
 
 // Usa memoryStorage para manter arquivos em memória antes de fazer upload para R2
 const storage = multer.memoryStorage();
@@ -68,9 +69,14 @@ export async function uploadToR2(req: Request, res: Response, next: NextFunction
           continue;
         }
 
+        // Converte a imagem para WebP antes do upload
+        const { buffer: webpBuffer, mimetype: webpMimetype } = await convertToWebP(
+          file.buffer,
+          file.mimetype
+        );
+
         // Gera nome único para o arquivo
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname);
         
         // Determina o tipo de arquivo baseado no fieldname
         let filename: string;
@@ -78,19 +84,19 @@ export async function uploadToR2(req: Request, res: Response, next: NextFunction
         
         if (file.fieldname === 'logo') {
           // Logo da garagem
-          filename = `logo-${uniqueSuffix}${ext}`;
+          filename = `logo-${uniqueSuffix}.webp`;
           uploadCarId = null; // Logo não tem carId
         } else {
           // Imagem de carro
-          filename = `car-${uniqueSuffix}${ext}`;
+          filename = `car-${uniqueSuffix}.webp`;
           uploadCarId = carId; // Usa carId se disponível
         }
 
         // Faz upload para R2 com organização por garagem e carro
         const url = await StorageService.uploadImage(
-          file.buffer, 
+          webpBuffer, 
           filename, 
-          file.mimetype,
+          webpMimetype,
           garageId,
           uploadCarId
         );
